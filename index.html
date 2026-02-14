@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Review Next | Live Billing</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:'Segoe UI',sans-serif;
+}
+
+body{
+  min-height:100vh;
+  background:linear-gradient(135deg,#1e3c72,#2a5298,#4facfe);
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding:80px 15px 40px;
+}
+
+/* Top Bar */
+.top-bar{
+  position:fixed;
+  top:0;
+  width:100%;
+  padding:14px 0;
+  text-align:center;
+  backdrop-filter:blur(15px);
+  background:rgba(0,0,0,0.3);
+  color:#fff;
+  font-weight:700;
+  letter-spacing:2px;
+  font-size:16px;
+  z-index:100;
+}
+
+/* Popup */
+.popup{
+  position:fixed;
+  top:70px;
+  right:-400px;
+  background:linear-gradient(45deg,#ff4d4d,#ff0000);
+  color:#fff;
+  padding:14px 22px;
+  border-radius:10px;
+  font-size:13px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.4);
+  transition:0.4s ease;
+  z-index:200;
+}
+.popup.show{
+  right:15px;
+}
+
+/* Container */
+.container{
+  width:100%;
+  max-width:420px;
+  padding:25px;
+  border-radius:22px;
+  backdrop-filter:blur(25px);
+  background:rgba(255,255,255,0.15);
+  box-shadow:0 12px 35px rgba(0,0,0,0.4);
+  color:#fff;
+}
+
+.title{
+  text-align:center;
+  font-size:18px;
+  font-weight:600;
+  margin-bottom:20px;
+}
+
+/* Inputs */
+.input-group{
+  margin-bottom:15px;
+}
+
+label{
+  font-size:13px;
+  margin-bottom:6px;
+  display:block;
+}
+
+input{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:14px;
+  font-size:14px;
+  background:rgba(255,255,255,0.95);
+  outline:none;
+}
+
+/* Buttons */
+button{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:16px;
+  font-weight:600;
+  font-size:15px;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+.generate{
+  background:linear-gradient(45deg,#00c6ff,#0072ff);
+  color:#fff;
+  margin-top:10px;
+}
+
+.generate.loading{
+  background:#004aad;
+  pointer-events:none;
+}
+
+.share{
+  margin-top:12px;
+  background:#229ED9;
+  color:#fff;
+  display:none;
+}
+
+/* Bill */
+.bill{
+  margin-top:18px;
+  padding:18px;
+  border-radius:16px;
+  background:#fff;
+  color:#000;
+  font-size:14px;
+  opacity:0;
+  transform:translateY(10px);
+  transition:0.4s;
+  line-height:1.6;
+}
+.bill.show{
+  opacity:1;
+  transform:translateY(0);
+}
+
+@media(max-width:350px){
+  .container{
+    padding:18px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="top-bar">REVIEW NEXT</div>
+<div class="popup" id="popup"></div>
+
+<div class="container">
+<div class="title">Live Billing Statement</div>
+
+<div class="input-group">
+<label>Client Name</label>
+<input type="text" id="name" placeholder="Enter Client Name">
+</div>
+
+<div class="input-group">
+<label>Total Live Units</label>
+<input type="number" id="totalLive" placeholder="Enter Total Units">
+</div>
+
+<div class="input-group">
+<label>Live Rate (Max ₹7)</label>
+<input type="number" id="liveRate" placeholder="Enter Rate">
+</div>
+
+<div class="input-group">
+<label>UPI ID</label>
+<input type="text" id="upi" placeholder="example123@bank">
+</div>
+
+<button class="generate" id="generateBtn" onclick="generateBill()">Generate Bill</button>
+
+<div class="bill" id="billOutput"></div>
+<button class="share" id="shareBtn" onclick="shareBill()">Share to Telegram</button>
+
+</div>
+
+<script>
+
+/* Popup */
+function showPopup(message){
+  let popup=document.getElementById("popup");
+  popup.innerText=message;
+  popup.classList.add("show");
+  setTimeout(()=>popup.classList.remove("show"),3000);
+}
+
+/* Rate limit */
+document.getElementById("liveRate").addEventListener("input",function(){
+  if(parseFloat(this.value)>7){
+    this.value="";
+    showPopup("Maximum allowed rate is ₹7.");
+  }
+});
+
+/* UPI Validation */
+function isValidUPI(upi){
+  let pattern=/^[a-zA-Z0-9._-]{10,}@[a-zA-Z]{2,}$/;
+  return pattern.test(upi);
+}
+
+/* Generate */
+function generateBill(){
+
+  let name=nameField.value.trim();
+  let totalLive=parseFloat(totalLiveField.value);
+  let liveRate=parseFloat(liveRateField.value);
+  let upi=upiField.value.trim();
+
+  let btn=generateBtn;
+  let billOutput=billOutputDiv;
+  let shareBtn=shareBtnBtn;
+
+  if(!name || !totalLive || !liveRate || !upi){
+    showPopup("All fields are required.");
+    return;
+  }
+
+  if(!isValidUPI(upi)){
+    showPopup("Invalid UPI format.");
+    return;
+  }
+
+  let finalAmount=totalLive*liveRate;
+  let invoiceID="INV"+Math.floor(Math.random()*100000);
+  let today=new Date().toLocaleDateString();
+
+  btn.classList.add("loading");
+  btn.innerText="Generating...";
+
+  setTimeout(()=>{
+    btn.classList.remove("loading");
+    btn.innerText="Generate ✓";
+
+    billOutput.innerHTML=
+    "<strong>REVIEW NEXT - Billing Statement</strong><br><br>"+
+    "Invoice ID: "+invoiceID+"<br>"+
+    "Date: "+today+"<br><br>"+
+    "Client: "+name+"<br>"+
+    "Total Live Units: "+totalLive+"<br>"+
+    "Approved Rate: ₹"+liveRate.toFixed(2)+"<br>"+
+    "UPI ID: "+upi+"<br>"+
+    "-------------------------<br>"+
+    "<strong>Total Payable: ₹"+finalAmount.toFixed(2)+"</strong>";
+
+    billOutput.classList.add("show");
+    shareBtn.style.display="block";
+
+  },800);
+}
+
+/* DOM Shortcuts */
+const nameField=document.getElementById("name");
+const totalLiveField=document.getElementById("totalLive");
+const liveRateField=document.getElementById("liveRate");
+const upiField=document.getElementById("upi");
+const generateBtn=document.getElementById("generateBtn");
+const billOutputDiv=document.getElementById("billOutput");
+const shareBtnBtn=document.getElementById("shareBtn");
+
+/* Share */
+function shareBill(){
+  let message=billOutputDiv.innerText+"\n\nPowered by @Taskly_ai";
+  let telegramURL="https://t.me/share/url?url=&text="+encodeURIComponent(message);
+  window.open(telegramURL,"_blank");
+
+  html2canvas(billOutputDiv).then(canvas=>{
+    let link=document.createElement("a");
+    link.download="ReviewNext_Bill.png";
+    link.href=canvas.toDataURL();
+    link.click();
+  });
+}
+
+</script>
+
+</body>
+</html>
